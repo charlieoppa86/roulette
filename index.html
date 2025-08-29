@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>오늘 뭐먹지?</title>
+  <style>
+    :root { --bg:#0e0f13; --fg:#f6f7fb; --muted:#aeb4c0; --brand:#6ea8fe; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: radial-gradient(1200px 800px at 50% -20%, #1b1e27, var(--bg)); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; display: grid; place-items: center; }
+    .app { width: min(950px, 92vw); padding: 24px; }
+    h1 { font-size: clamp(18px, 2.6vw, 26px); font-weight: 700; margin: 0 0 16px; letter-spacing: .2px; }
+    .card { background: #12141b; border: 1px solid #22262f; border-radius: 18px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04); }
+    .wrap { display: grid; grid-template-columns: 1fr 340px; gap: 18px; align-items: center; }
+    @media (max-width: 1000px) { .wrap { grid-template-columns: 1fr; } }
+    .stage { position: relative; display: grid; place-items: center; aspect-ratio: 1 / 1; }
+    canvas { width: 100%; height: 100%; filter: drop-shadow(0 12px 22px rgba(0,0,0,.5)); }
+    .pointer { position: absolute; top: -8px; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-bottom: 26px solid var(--brand); filter: drop-shadow(0 4px 8px rgba(0,0,0,.4)); }
+    .panel { display: grid; gap: 14px; align-content: start; }
+    .panel .desc { color: var(--muted); font-size: 13px; }
+    .btnbar { display: flex; gap: 10px; }
+    button { cursor: pointer; padding: 12px 16px; border-radius: 12px; border: 1px solid #2a303b; background: #171a22; color: var(--fg); font-weight: 600; transition: .2s ease; }
+    button:hover { transform: translateY(-1px); background:#1c2029; }
+    button:active { transform: translateY(0); }
+    .primary { background: linear-gradient(180deg, #6ea8fe, #3678ff); border-color: #4a86ff; color: #fff; }
+    .primary:disabled { opacity: .6; cursor: not-allowed; }
+    .result { font-size: 18px; font-weight: 700; letter-spacing: .2px; padding: 10px 12px; border: 1px dashed #2a303b; border-radius: 12px; min-height: 44px; display: grid; place-items: center; text-align: center; }
+    .list { margin-top: 8px; max-height: 180px; overflow: auto; padding: 10px; border-radius: 12px; background: #0f1218; border: 1px solid #1e2330; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.7; color: #c9d1e6; }
+    .list b { color:#9ec1ff; }
+    .hint { font-size: 12px; color: var(--muted); }
+    /* Modal 스타일 */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-content { background:#fff; color:#000; border-radius: 12px; padding: 20px 24px; max-width: 300px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+    .modal-content h2 { font-size: 18px; margin-bottom: 12px; }
+    .modal-content button { margin-top: 10px; background:#3678ff; border:none; color:#fff; font-weight:600; padding:8px 14px; border-radius:8px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>🎯 오늘 뭐먹지?</h1>
+    <div class="card wrap">
+      <div class="stage">
+        <div class="pointer" aria-hidden="true"></div>
+        <canvas id="wheel" width="1000" height="1000" aria-label="룰렛 바퀴"></canvas>
+      </div>
+      <div class="panel">
+   
+        <div class="btnbar">
+          <button id="play" class="primary">▶ 뭐 먹을래?</button>
+          <button id="reloadPlaces" title="Google 300m 내 식당/카페 30개 불러오기">Google에서 불러오기</button>
+        </div>
+        <div class="result" id="result">결과가 여기 표시됩니다</div>
+        <div class="list" id="itemsList"></div>
+        <div class="hint">※ 아래 <code>items</code> 배열의 문자열을 원하는 값으로 바꾸세요 (총 30개)        <div class="hint" style="margin-top:8px">Google Maps API 키를 넣으면 시청역(37.5659, 126.9784) 기준 <b>반경 300m</b> 내 식당/카페를 불러와 <b>별점 가중</b> 랜덤으로 30개를 채워넣습니다. <code>window.GMAPS_API_KEY = "YOUR_API_KEY"</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결과 모달 -->
+  <div class="modal" id="resultModal">
+    <div class="modal-content">
+      <h2>오늘의 메뉴는?</h2>
+      <div id="modalText"></div>
+      <button id="closeModal">닫기</button>
+    </div>
+  </div>
+
+<script>
+(() => {
+  let items = [
+    "무교동 북어국집", "고려삼계탕", "송옥", "PARC", "편의점 도시락",
+    "유림면", "애성회관", "부민옥", "북창동순두부", "청진옥",
+    "르풀", "이남장", "광화문국밥", "히노아지", "카페 마마스",
+    "시청별관지하가서 아무거나", "남파랑국밥", "풍년닭도리탕",
+    "우육면", "백조호프", "KFC", "진주회관", "월가갈비",
+    "무교동 낙지", "교동전선생", "만족오향족발", "또바기", "덕수정",
+    "조조칼국수", "농민백암순대"
+  ];
+
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const playBtn = document.getElementById('play');
+  const resultEl = document.getElementById('result');
+  const listEl = document.getElementById('itemsList');
+  const reloadBtn = document.getElementById('reloadPlaces');
+  const modal = document.getElementById('resultModal');
+  const modalText = document.getElementById('modalText');
+  const closeModal = document.getElementById('closeModal');
+
+  closeModal.addEventListener('click', () => { modal.style.display = 'none'; });
+
+  function fitDPI() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  new ResizeObserver(fitDPI).observe(canvas);
+
+  // 흑백 색상 (명암 조절: 밝은 회색과 짙은 회색)
+  function makeColors(n) {
+    const cols = [];
+    for (let i = 0; i < n; i++) {
+      cols.push(i % 2 === 0 ? "#222222" : "#f2f2f2");
+    }
+    return cols;
+  }
+  let colors = makeColors(items.length);
+
+  listEl.innerHTML = items.map((t, i) => `<div><b>${String(i+1).padStart(2,'0')}</b> — ${escapeHtml(t)}</div>`).join('');
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[m])); }
+
+  const TAU = Math.PI * 2;
+  let currentAngle = 0;
+
+  function drawWheel(angle = 0, highlightIndex = -1) {
+    const { width, height } = canvas.getBoundingClientRect();
+    const r = Math.min(width, height) * 0.54;
+    const cx = width / 2, cy = height / 2;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+
+    const n = items.length;
+    const arc = TAU / n;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (let i = 0; i < n; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, r, i * arc, (i + 1) * arc);
+      ctx.closePath();
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.fill();
+
+      const mid = i * arc + arc / 2;
+      const tx = Math.cos(mid) * (r * 0.7);
+      const ty = Math.sin(mid) * (r * 0.7);
+
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(mid + Math.PI / 2);
+      ctx.fillStyle = colors[i % colors.length] === "#222222" ? "#fff" : "#000";
+      ctx.font = `${Math.max(10, r * 0.07)}px system-ui`;
+      const label = items[i];
+      wrapFillText(ctx, label, 0, 0, r * 0.4, Math.max(10, r * 0.07));
+      ctx.restore();
+    }
+
+    ctx.lineWidth = Math.max(4, r * 0.02);
+    ctx.strokeStyle = '#10131a';
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, TAU);
+    ctx.stroke();
+
+    if (highlightIndex >= 0) {
+      const start = highlightIndex * (TAU / items.length);
+      ctx.beginPath();
+      ctx.arc(0, 0, r, start, start + arc);
+      ctx.strokeStyle = 'rgba(255,0,0,.9)';
+      ctx.lineWidth = Math.max(8, r * 0.04);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function wrapFillText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = String(text).split(/\s+/);
+    const lines = [];
+    let line = '';
+    for (let w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = w;
+      } else line = test;
+    }
+    if (line) lines.push(line);
+
+    const totalH = lines.length * lineHeight;
+    let dy = y - totalH / 2 + lineHeight / 2;
+    for (const l of lines) {
+      ctx.fillText(l, x, dy);
+      dy += lineHeight;
+    }
+  }
+
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+  function angleForIndex(index, extraSpins = 6) {
+    const n = items.length;
+    const arc = TAU / n;
+    const targetAtTop = -Math.PI / 2;
+    const sliceCenter = index * arc + arc / 2;
+    let angle = (targetAtTop - sliceCenter);
+    angle += TAU * extraSpins;
+    return angle;
+  }
+
+  let spinning = false;
+  let rafId = 0;
+
+  function spin() {
+    if (spinning) return;
+    if (items.length !== 30) {
+      console.warn('현재 아이템 수:', items.length);
+    }
+
+    spinning = true;
+    playBtn.disabled = true;
+    resultEl.textContent = '회전 중…';
+
+    const index = Math.floor(Math.random() * items.length);
+
+    const duration = 5000; // 회전 시간 5초
+    const start = performance.now();
+    const initial = currentAngle % TAU;
+    const target = angleForIndex(index, 6 + Math.floor(Math.random()*2));
+    const jitter = (Math.random() - 0.5) * (TAU / items.length) * 0.2;
+
+    cancelAnimationFrame(rafId);
+
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = easeOutCubic(t);
+      currentAngle = initial + (target + jitter) * eased;
+      drawWheel(currentAngle);
+      if (t < 1) rafId = requestAnimationFrame(tick);
+      else {
+        const finalIndex = resolveIndexFromAngle(currentAngle);
+        drawWheel(currentAngle, finalIndex);
+        const val = items[finalIndex];
+        resultEl.textContent = `결과: ${val}`;
+        modalText.textContent = val;
+        modal.style.display = 'flex';
+        spinning = false;
+        playBtn.disabled = false;
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function resolveIndexFromAngle(angle) {
+    const n = items.length;
+    const arc = TAU / n;
+    let a = (-Math.PI/2 - angle) % TAU;
+    if (a < 0) a += TAU;
+    const idx = Math.floor(a / arc);
+    return idx;
+  }
+
+  playBtn.addEventListener('click', spin);
+  if (reloadBtn) reloadBtn.addEventListener('click', loadPlaces);
+
+  fitDPI();
+  currentAngle = 0;
+  drawWheel(currentAngle);
+
+  window.GMAPS_API_KEY = window.GMAPS_API_KEY || "";
+
+  function loadPlaces(){
+    if (!window.GMAPS_API_KEY) { alert('window.GMAPS_API_KEY에 Google Maps API 키를 설정하세요.'); return; }
+  }
+})();
+</script>
+</body>
+</html>
