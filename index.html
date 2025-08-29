@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>빅밸류 점심 룰렛git branch -M main</title>
+  <title>오늘 뭐먹지?</title>
   <style>
     :root { --bg:#0e0f13; --fg:#f6f7fb; --muted:#aeb4c0; --brand:#6ea8fe; }
     * { box-sizing: border-box; }
@@ -48,7 +48,7 @@
    
         <div class="btnbar">
           <button id="play" class="primary">▶ 뭐 먹을래?</button>
-          <button id="reloadPlaces" title="Google 300m 내 식당/카페 30개 불러오기">맛집 업데이트(개발 중)</button>
+          <button id="reloadPlaces" title="Google 300m 내 식당/카페 30개 불러오기">Google에서 불러오기</button>
         </div>
         <div class="result" id="result">결과가 여기 표시됩니다</div>
         <div class="list" id="itemsList"></div>
@@ -117,7 +117,7 @@
 
   function drawWheel(angle = 0, highlightIndex = -1) {
     const { width, height } = canvas.getBoundingClientRect();
-    const r = Math.min(width, height) * 0.54;
+    const r = Math.min(width, height) * 0.44; // 기존보다 10% 더 줄임 (0.54 → 0.44)
     const cx = width / 2, cy = height / 2;
 
     ctx.clearRect(0, 0, width, height);
@@ -144,7 +144,8 @@
 
       ctx.save();
       ctx.translate(tx, ty);
-      ctx.rotate(mid + Math.PI / 2);
+      ctx.rotate(mid); // 각도에 맞게 텍스트 회전
+      ctx.rotate(Math.PI / 2); // 추가로 90도 회전
       ctx.fillStyle = colors[i % colors.length] === "#222222" ? "#fff" : "#000";
       ctx.font = `${Math.max(10, r * 0.07)}px system-ui`;
       const label = items[i];
