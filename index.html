@@ -25,7 +25,6 @@
     button:active { transform: translateY(0); }
     .primary { background: linear-gradient(180deg, #6ea8fe, #3678ff); border-color: #4a86ff; color: #fff; }
     .primary:disabled { opacity: .6; cursor: not-allowed; }
-    #play { transform: scale(3, 1.1); transform-origin: center; }
     .result { font-size: 18px; font-weight: 700; letter-spacing: .2px; padding: 10px 12px; border: 1px dashed #2a303b; border-radius: 12px; min-height: 44px; display: grid; place-items: center; text-align: center; }
     .list { margin-top: 8px; max-height: 180px; overflow: auto; padding: 10px; border-radius: 12px; background: #0f1218; border: 1px solid #1e2330; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.7; color: #c9d1e6; }
     .list b { color:#9ec1ff; }
@@ -48,7 +47,7 @@
       <div class="panel">
         <div class="btnbar">
           <button id="play" class="primary">▶ 뭐 먹을래?</button>
-          <button id="reloadPlaces" title="Google 300m 내 식당/카페 30개 불러오기">최신 맛집 업데이트(개발 중)</button>
+          <button id="reloadPlaces" title="Google 300m 내 식당/카페 30개 불러오기">Google에서 불러오기</button>
         </div>
         <div class="result" id="result">결과가 여기 표시됩니다</div>
         <div class="list" id="itemsList"></div>
